@@ -51,7 +51,7 @@ int cell_x;
 int cell_y;
 int cell_z;
 
-std::vector<std::vector<std::vector<std::vector<int>>>> grid(cell_x, std::vector<std::vector<std::vector<int>>>(cell_y, std::vector<std::vector<int>>(cell_z, std::vector<int>())));
+std::vector<std::vector<std::vector<std::vector<int> > > > grid(cell_x, std::vector<std::vector<std::vector<int> > >(cell_y, std::vector<std::vector<int> >(cell_z, std::vector<int>())));
 int grid_x, grid_y, grid_z;
 
 
@@ -65,7 +65,7 @@ void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, 
 	// 	Particles[i]->force=vec3();
 	// }
 	for (int i = 0; i < particles.position.rows(); i++) {
-		particles.velocity.row(i) += dt*(particles.force.row(i)+extF)/coef.MASS;
+		particles.velocity.row(i) += dt*(particles.force.row(i)+extF.transpose())/coef.MASS;
 		particles.deltaP.row(i).setZero();
 		particles.PredictedPos.row(i) = particles.position.row(i)+particles.velocity.row(i)*dt;
 		particles.force.row(i).setZero();
@@ -97,10 +97,13 @@ void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, 
 	}
 }
 
-void findNeighbors(std::vector< std::vector<int> > neighbors){
+void findNeighbors(std::vector< std::vector<int> > &neighbors){
 	for (grid_x = 0; grid_x < cell_x; grid_x++) {
 		for (grid_y = 0; grid_y < cell_y; grid_y++) {
 			for (grid_z = 0; grid_z < cell_z; grid_z++) {
+				assert(grid_x < grid.size());
+				assert(grid_y < grid[grid_x].size());
+				assert(grid_z < grid[grid_x ][grid_y ].size());
 				for (int i : grid[grid_x][grid_y][grid_z]) {
 					// neighbors.push_back(std::vector<int>());
 					for (int count_x = -1; count_x < 2; count_x++) {
@@ -109,7 +112,11 @@ void findNeighbors(std::vector< std::vector<int> > neighbors){
 							if (grid_y + count_y < 0 || grid_y + count_y >= cell_y) continue;
 							for (int count_z = -1; count_z < 2; count_z++) {
 								if (grid_z + count_z < 0 || grid_z + count_z >= cell_z) continue;
+								assert(grid_x + count_x >= 0 && grid_x + count_x < grid.size());
+								assert(grid_y + count_y >= 0 && grid_y + count_y < grid[grid_x + count_x ].size());
+								assert(grid_z + count_z >= 0 && grid_z + count_z < grid[grid_x + count_x][grid_y + count_y].size());
 								for (int j : grid[grid_x + count_x][grid_y + count_y][grid_z + count_z]) {
+									assert(i >= 0 && i < neighbors.size());
 									neighbors[i].push_back(j);
 								}
 							}
@@ -291,8 +298,10 @@ void cleanup(Particles& particles){
 }
 
 void PBF_update(Particles& particles, double dt, Coef& coef) {
+	
 	std::vector<int> v_row;
 	std::vector< std::vector<int> > neighbors(particles.position.rows(), v_row);
+	
 	min_x = particles.position.col(0).minCoeff();
 	min_y = particles.position.col(1).minCoeff();
 	min_z = particles.position.col(2).minCoeff();
@@ -307,15 +316,18 @@ void PBF_update(Particles& particles, double dt, Coef& coef) {
 	cell_y = (max_y - min_y) / coef.H + 1;
 	cell_z = (max_z - min_z) / coef.H + 1;
 
+	grid = std::vector<std::vector<std::vector<std::vector<int> > > >(cell_x, std::vector<std::vector<std::vector<int> > >(cell_y, std::vector<std::vector<int> >(cell_z, std::vector<int>())));
 	cleanup(particles);
 
 	addExtForce(dt, f_g, particles, coef);
-
 	for (size_t i = 0; i < particles.PredictedPos.rows(); i++) {
 		Eigen::Vector3d pos = particles.PredictedPos.row(i);
 		grid_x = (pos(0) - min_x) / coef.H;
 		grid_y = (pos(1) - min_y) / coef.H;
 		grid_z = (pos(2) - min_z) / coef.H;
+		assert(grid_x < grid.size());
+		assert(grid_y < grid[grid_x].size());
+		assert(grid_z < grid[grid_x][grid_y].size());
 		grid[grid_x][grid_y][grid_z].push_back(i);
 	}
 
