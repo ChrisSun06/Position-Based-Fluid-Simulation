@@ -5,7 +5,7 @@
 #include <iostream>
 #include <collision_response.h>
 
-#define CONST_INV_REST_DENSITY 0.01
+#define CONST_INV_REST_DENSITY 1.0
 #define RELAXATION 0.01
 #define PRESSURE_K 0.1
 #define PRESSURE_N 6
@@ -30,8 +30,7 @@ double
 	density,
 	d2Cs, // Color surface Laplacian
 	r; // positions distance
-Eigen::Vector3d
-	d,
+Eigen::Vector3d d,
 	f_pressure, // pressure 
 	f_visco, // viscosity 
 	f_surface, // surface tension 
@@ -56,20 +55,6 @@ int grid_x, grid_y, grid_z;
 
 
 void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, Coef& coef){
-	// for(unsigned int i=0;i<ParticleCont;i++){
-	// 	// if(!dropToGround&&Particles[i]->isOnSurface)
-	// 	// 	continue;
-	// 	Particles[i]->velocity+=dt*(Particles[i]->force+extF)*Particles[i]->inv_mass;
-	// 	Particles[i]->deltaP=vec3();
-	// 	Particles[i]->PredictedPos=Particles[i]->position+Particles[i]->velocity*dt;
-	// 	Particles[i]->force=vec3();
-	// }
-	for (int i = 0; i < particles.position.rows(); i++) {
-		particles.velocity.row(i) += dt*(particles.force.row(i)+extF.transpose())/coef.MASS;
-		particles.deltaP.row(i).setZero();
-		particles.PredictedPos.row(i) = particles.position.row(i)+particles.velocity.row(i)*dt;
-		particles.force.row(i).setZero();
-	}
 	N << 0., -1., 0.,
 	0., 1., 0.,
 	1., 0., 0.,
@@ -83,15 +68,43 @@ void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, 
 	0, 0., -1.,
 	2., 0., 0.,
 	0., 0., 2.;
+	Eigen::Vector3d pi;
+	Eigen::Vector3d vi;
+	Eigen::Vector3d p_wall;
+	Eigen::Vector3d N_wall;
 	for (int i = 0; i < particles.position.rows(); i++) {
 		for (int w = 0; w < P.rows(); w++) {
-			Eigen::Vector3d pi = particles.PredictedPos.row(i);
-			Eigen::Vector3d vi = particles.velocity.row(i);
-			Eigen::Vector3d p_wall = P.row(w);
-			Eigen::Vector3d N_wall = N.row(w);
+			pi = particles.PredictedPos.row(i);
+			vi = particles.velocity.row(i);
+			p_wall = P.row(w);
+			N_wall = N.row(w);
 			double d = (p_wall - pi).dot(N_wall);
 			if (d > 0.) {
-				particles.PredictedPos.row(i) += d * N_wall;
+				particles.PredictedPos.row(i) += 2.0* d * N_wall;
+				particles.velocity.row(i) -=  0.9 * vi.dot(N_wall) * N_wall;
+			}
+		}
+	}
+	for (int i = 0; i < particles.position.rows(); i++) {
+		particles.velocity.row(i) += dt*(particles.force.row(i)+extF.transpose())/coef.MASS;
+		particles.deltaP.row(i).setZero();
+		particles.PredictedPos.row(i) = particles.position.row(i)+particles.velocity.row(i)*dt;
+		particles.force.row(i).setZero();
+	}
+	// std::cout << "Predicted pos :\n" << particles.PredictedPos.row(0) << std::endl;
+	// std::cout << "velo :\n" << particles.velocity.row(0) << std::endl;
+	// std::cout << "extf :\n" << extF.transpose() << std::endl;
+	for (int j = 0; j < particles.position.rows(); j++) {
+		for (int k = 0; k < P.rows(); k++) {
+			pi = particles.PredictedPos.row(j);
+			vi = particles.velocity.row(j);
+			p_wall = P.row(k);
+			N_wall = N.row(k);
+			double d = (p_wall - pi).dot(N_wall);
+			if (d > 0.) {
+				// printf("help\n");
+				particles.PredictedPos.row(j) += 2.0* d * N_wall;
+				particles.velocity.row(j) -=  0.9 * vi.dot(N_wall) * N_wall;
 			}
 		}
 	}
@@ -264,9 +277,9 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 
 			if (d > 0.) {
 				// push particle out of wall
-				particles.PredictedPos.row(i) += d * N_wall;
+				particles.PredictedPos.row(i) += 2.0 * d * N_wall;
 				// reflect the velocity component # Don't need to do this!
-				// particles.velocity.row(i) -=  2. * vi.dot(N_wall) * N_wall;
+				particles.velocity.row(i) -=  0.9 * vi.dot(N_wall) * N_wall;
 			}
 		}
 	}
@@ -296,6 +309,7 @@ void cleanup(Particles& particles){
 	particles.grad_C.setZero();
 	particles.accum_Grad_C.setZero();
 	particles.lambda.setZero();
+	particles.density.setZero();
 }
 
 void PBF_update(Particles& particles, double dt, Coef& coef) {
@@ -307,11 +321,19 @@ void PBF_update(Particles& particles, double dt, Coef& coef) {
 	min_y = particles.position.col(1).minCoeff();
 	min_z = particles.position.col(2).minCoeff();
 
-	f_g << 0, coef.G* particles.density(0), 0;
+	printf("particles_min[0]=%f\n", min_x);
+	printf("particles_min[1]=%f\n", min_y);
+	printf("particles_min[2]=%f\n", min_z);
+
+	f_g << 0, coef.G* 1.0, 0;
 
 	max_x = particles.position.col(0).maxCoeff();
 	max_y = particles.position.col(1).maxCoeff();
 	max_z = particles.position.col(2).maxCoeff();
+
+	printf("particles_max[0]=%f\n", max_x);
+	printf("particles_max[1]=%f\n", max_y);
+	printf("particles_max[2]=%f\n", max_z);
 
 	cell_x = (max_x - min_x) / coef.H + 1;
 	cell_y = (max_y - min_y) / coef.H + 1;
@@ -319,6 +341,23 @@ void PBF_update(Particles& particles, double dt, Coef& coef) {
 
 	grid = std::vector<std::vector<std::vector<std::vector<int> > > >(cell_x, std::vector<std::vector<std::vector<int> > >(cell_y, std::vector<std::vector<int> >(cell_z, std::vector<int>())));
 	cleanup(particles);
+
+	// N <<
+	// 0., -1., 0.,
+	// 0., 1., 0.,
+	// 1., 0., 0.,
+	// 0., 0., 1.,
+	// -1., 0., 0.,
+	// 0., 0., -1.;
+	// P <<
+	// 0., 2., 0.,
+	// 0., -1., 0.,
+	// -1., 0., 0.,
+	// 0, 0., -1.,
+	// 2., 0., 0.,
+	// 0., 0., 2.;
+
+	// collision_response(particles, P, N);
 
 	addExtForce(dt, f_g, particles, coef);
 	for (size_t i = 0; i < particles.PredictedPos.rows(); i++) {

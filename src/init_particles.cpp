@@ -36,7 +36,7 @@ void init_particles(
 	particles.pressure.resize(num_V);
 	particles.pressure.setZero();
 	particles.density.resize(num_V);
-	particles.density.setOnes();
+	particles.density.setZero();
 	particles.force.resize(num_V, 3);
 	particles.force.setZero();
 

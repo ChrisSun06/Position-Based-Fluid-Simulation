@@ -1,7 +1,7 @@
 #ifndef COLLISION_H
 #define COLLISION_H
 
-#include <Eigen/dense>
+#include <Eigen/Dense>
 #include <particle_sys_data.h>
 
 
