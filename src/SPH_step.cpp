@@ -116,8 +116,9 @@ void findNeighbors(std::vector< std::vector<int> > &neighbors){
 								assert(grid_y + count_y >= 0 && grid_y + count_y < grid[grid_x + count_x ].size());
 								assert(grid_z + count_z >= 0 && grid_z + count_z < grid[grid_x + count_x][grid_y + count_y].size());
 								for (int j : grid[grid_x + count_x][grid_y + count_y][grid_z + count_z]) {
-									assert(i >= 0 && i < neighbors.size());
-									neighbors[i].push_back(j);
+									if(i != j){
+										neighbors[i].push_back(j);
+									}
 								}
 							}
 						}
