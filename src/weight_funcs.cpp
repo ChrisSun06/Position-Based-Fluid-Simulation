@@ -2,14 +2,20 @@
 
 double kernel(Eigen::Ref<const Eigen::Vector3d> r, double H){
 	if(r.norm()>H){
-		return 0.00001;
+		return 0.00000;
 	}
+	printf("asd%f\n", r.norm());
 	return 315. / (64. * M_PI * pow(H, 9)) * pow(H * H - r.dot(r), 3);
 }
 
 void spiky(
 	Eigen::Ref<const Eigen::Vector3d> r, double H, Eigen::Vector3d& g
 ) {
+	if(r.norm()>H){
+		Eigen::Vector3d ret;
+		ret << 0.00000, 0.00000, 0.00000;
+		g = ret;
+	}
 	g = -45. / (M_PI * pow(H, 6)) * pow(H - r.norm(), 2) * r / (r.norm() +0.0001);
 }
 
@@ -23,6 +29,10 @@ void dWpress(
 
 
 double Wpoly(double r, double H) {
+	if(r>H){
+		return 0.00000;
+	}
+	// printf("help\n");
 	return 315. / (64. * M_PI * pow(H, 9)) * pow(H * H - r * r, 3);
 }
 
