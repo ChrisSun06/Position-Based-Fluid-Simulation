@@ -15,11 +15,10 @@ void collision_response(
 			double d = (p_wall - pi).dot(N_wall);
 
 			if (d > 0.) {
-				printf("help\n");
 				// push particle out of wall
-				particles.position.row(i) += 2* d * N_wall;
+				particles.position.row(i) += d * N_wall;
 				// reflect the velocity component
-				particles.velocity.row(i) -=  0.9 * vi.dot(N_wall) * N_wall;
+				particles.velocity.row(i) -=  vi.dot(N_wall) * N_wall;
 			}
 		}
 	}
