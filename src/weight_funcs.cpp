@@ -1,4 +1,5 @@
 #include <weight_funcs.h>
+#include <iostream>
 
 double kernel(Eigen::Ref<const Eigen::Vector3d> r, double H){
 	if(r.norm()>H){
@@ -13,8 +14,9 @@ void spiky(
 ) {
 	if(r.norm()>H){
 		Eigen::Vector3d ret;
-		ret << 0.00000, 0.00000, 0.00000;
+		ret << 0.000001, 0.000001, 0.000001;
 		g = ret;
+		return;
 	}
 	g = -45. / (M_PI * pow(H, 6)) * pow(H - r.norm(), 2) * r / (r.norm() +0.0001);
 }

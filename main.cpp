@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 
 	// Eigen::Vector3i num_points(15, 25, 15);
 	Eigen::Vector3i num_points(10, 10, 10);
-	double step_size = 0.1;
+	double step_size = 0.05;
 	Eigen::Vector3d corner(-0.5, -0.5, -0.5);
 	const Eigen::RowVector3d particle_color(0.2, 0.8, 0.8);
 
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
 		coef.RHO_IDEAL = 1000.;
 		coef.VISCOSITY = 2.5;
 		// coef.H = 0.0635;
-		coef.H = 0.02;
+		coef.H = 0.0625;
 		coef.G = -9.8;
 		coef.SUFRACE_TENSION = 1.0975;
 		coef.SUFRACE_THRESH = 0.01;

@@ -5,7 +5,7 @@
 #include <iostream>
 #include <collision_response.h>
 
-#define CONST_INV_REST_DENSITY 1.0
+#define CONST_INV_REST_DENSITY 0.0000001
 #define RELAXATION 0.01
 #define PRESSURE_K 0.1
 #define PRESSURE_N 6
@@ -77,8 +77,7 @@ void collision_response_2(
 				// particles.PredictedPos.row(i) = proj;
 				// reflect the velocity component
 				// particles.velocity.row(i) -=  1.2 * vi.dot(N_wall) * N_wall;
-				std::cout << vi.dot(N_wall) * N_wall <<std::endl;
-				particles.velocity.row(i) -=  0.9* vi.dot(N_wall) * N_wall;
+				particles.velocity.row(i) -=  1.1*vi.dot(N_wall) * N_wall;
 				particles.PredictedPos.row(i) += particles.velocity.row(i) * 0.02;
 			}
 		}
@@ -208,7 +207,6 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 			p_j = particles.PredictedPos.row(j);
 			diff = p-p_j;
 			double mag = sqrt(diff.transpose()*diff);
-
 			//calculate poly6 kernal, assume all particles have unit mass
 			double W = 315 / (64 * 3.14*pow(coef.H, 9));
 			if (mag >= 0 && mag <= coef.H)
@@ -232,6 +230,7 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 		// particles.density(i)=0.0;
 		particles.C(i) = densityConstraint;
 	}
+	
 	/////////////////////////////////////////////////////////////////////////
 
 	////////////////////////Solve C_i_gradient///////////////////////////////
@@ -279,7 +278,7 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 			{
 				// P3D normalized = P3D(diff[0] / mag, diff[1] / mag, diff[2] / mag);
 				W *= std::pow(coef.H - mag, 2.0);
-				Eigen::Vector3d tmp = diff.normalized()*W;
+				Eigen::Vector3d tmp = (diff/(diff.norm() + 0.001))*W;
 				grad -= tmp;
 				double magGrad = sqrt(tmp.transpose()*tmp);
 				denom += std::pow(magGrad, 2.0);
@@ -333,6 +332,9 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 			Eigen::Vector3d agc;
 			spiky(p-p_j,coef.H, agc);
 			Eigen::Vector3d dp=(particles.lambda(i)+particles.lambda(j)+s_corr)* agc*CONST_INV_REST_DENSITY;
+			if(dp.norm() > 1){
+				std::cout << "DP: " << dp << "\n";
+			}
 			particles.deltaP.row(i)+=dp;
 			particles.deltaP.row(j)-=dp;
 		}
@@ -410,7 +412,6 @@ void cleanup(Particles& particles){
 	particles.grad_C.setZero();
 	particles.accum_Grad_C.setZero();
 	particles.lambda.setZero();
-	particles.density.setZero();
 }
 
 void PBF_update(Particles& particles, double dt, Coef& coef) {
