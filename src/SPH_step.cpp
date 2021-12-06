@@ -7,7 +7,7 @@
 
 #define CONST_INV_REST_DENSITY 0.001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.00005
+#define PRESSURE_K 0.0001
 #define PRESSURE_N 6
 
 Eigen::MatrixXd N(6, 3);
@@ -295,7 +295,7 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 		for (int j : neighbors[i]) {
 			if (i==j) continue;
 			p_j = particles.PredictedPos.row(j);
-			s_corr = -PRESSURE_K * pow(kernel(p-p_j, coef.H) / Wpoly(0.4*coef.H, coef.H), 2.0);
+			s_corr = -PRESSURE_K * pow(kernel(p-p_j, coef.H) / Wpoly(0.1*coef.H, coef.H), 2.0);
 			spiky(p-p_j, coef.H, grad);
 			double a = particles.lambda(i) + particles.lambda(j) + s_corr;
 			// printf("lambda%f\n", particles.lambda(i));
