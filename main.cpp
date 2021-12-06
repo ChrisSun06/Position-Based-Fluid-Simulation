@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
 		coef.RHO_IDEAL = 1000.;
 		coef.VISCOSITY = 2.5;
 		// coef.H = 0.0635;
-		coef.H = 0.0625;
+		coef.H = 0.0635;
 		coef.G = -9.8;
 		coef.SUFRACE_TENSION = 1.0975;
 		coef.SUFRACE_THRESH = 0.01;

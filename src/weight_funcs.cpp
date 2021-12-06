@@ -5,7 +5,7 @@ double kernel(Eigen::Ref<const Eigen::Vector3d> r, double H){
 	if(r.norm()>H){
 		return 0.00000;
 	}
-	printf("asd%f\n", r.norm());
+	// printf("asd%f\n", r.norm());
 	return 315. / (64. * M_PI * pow(H, 9)) * pow(H * H - r.dot(r), 3);
 }
 
@@ -14,7 +14,7 @@ void spiky(
 ) {
 	if(r.norm()>H){
 		Eigen::Vector3d ret;
-		ret << 0.000001, 0.000001, 0.000001;
+		ret << 0.000000, 0.000000, 0.000000;
 		g = ret;
 		return;
 	}

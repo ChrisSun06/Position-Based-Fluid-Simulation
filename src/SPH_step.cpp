@@ -5,9 +5,9 @@
 #include <iostream>
 #include <collision_response.h>
 
-#define CONST_INV_REST_DENSITY 0.0000001
+#define CONST_INV_REST_DENSITY 0.001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.1
+#define PRESSURE_K 0.00001
 #define PRESSURE_N 6
 
 Eigen::MatrixXd N(6, 3);
@@ -73,12 +73,12 @@ void collision_response_2(
 				double t = nom / denom;
 				proj = pi + t * 2 * N_wall;
 				// push particle out of wall
-				particles.PredictedPos.row(i) += d * N_wall;
+				particles.PredictedPos.row(i) += 1.1 * d * N_wall;
 				// particles.PredictedPos.row(i) = proj;
 				// reflect the velocity component
 				// particles.velocity.row(i) -=  1.2 * vi.dot(N_wall) * N_wall;
-				particles.velocity.row(i) -=  1.1*vi.dot(N_wall) * N_wall;
-				particles.PredictedPos.row(i) += particles.velocity.row(i) * 0.02;
+				particles.velocity.row(i) -=  1.0*vi.dot(N_wall) * N_wall;
+				// particles.PredictedPos.row(i) += particles.velocity.row(i) * 0.02;
 			}
 		}
 	}
@@ -100,46 +100,12 @@ void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, 
 	0, 0., -1.,
 	2., 0., 0.,
 	0., 0., 2.;
-	// Eigen::Vector3d pi;
-	// Eigen::Vector3d vi;
-	// Eigen::Vector3d p_wall;
-	// Eigen::Vector3d N_wall;
-	// for (int i = 0; i < particles.position.rows(); i++) {
-	// 	for (int w = 0; w < P.rows(); w++) {
-	// 		pi = particles.PredictedPos.row(i);
-	// 		vi = particles.velocity.row(i);
-	// 		p_wall = P.row(w);
-	// 		N_wall = N.row(w);
-	// 		double d = (p_wall - pi).dot(N_wall);
-	// 		if (d > 0.) {
-	// 			particles.PredictedPos.row(i) += d * N_wall;
-	// 			particles.velocity.row(i) -=  0.1 * vi.dot(N_wall) * N_wall;
-	// 		}
-	// 	}
-	// }
-	// collision_response_2(particles, P, N);
 	for (int i = 0; i < particles.position.rows(); i++) {
 		particles.velocity.row(i) += dt*(particles.force.row(i)+extF.transpose())/coef.MASS;
 		particles.deltaP.row(i).setZero();
 		particles.PredictedPos.row(i) = particles.position.row(i)+particles.velocity.row(i)*dt;
 		particles.force.row(i).setZero();
 	}
-	// std::cout << "Predicted pos :\n" << particles.PredictedPos.row(0) << std::endl;
-	// std::cout << "velo :\n" << particles.velocity.row(0) << std::endl;
-	// std::cout << "extf :\n" << extF.transpose() << std::endl;
-	// for (int j = 0; j < particles.position.rows(); j++) {
-	// 	for (int k = 0; k < P.rows(); k++) {
-	// 		pi = particles.PredictedPos.row(j);
-	// 		vi = particles.velocity.row(j);
-	// 		p_wall = P.row(k);
-	// 		N_wall = N.row(k);
-	// 		double d = (p_wall - pi).dot(N_wall);
-	// 		if (d > 0.) {
-	// 			particles.PredictedPos.row(j) += d * N_wall;
-	// 			// particles.velocity.row(j) -=  0.9 * vi.dot(N_wall) * N_wall;
-	// 		}
-	// 	}
-	// }
 	collision_response_2(particles, P, N);
 }
 
@@ -202,7 +168,7 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 		p = particles.PredictedPos.row(i);
 		for (int j : neighbors[i])
 		{
-			if(i == j) continue;
+			// if(i == j) continue;
 			Eigen::Vector3d diff;
 			p_j = particles.PredictedPos.row(j);
 			diff = p-p_j;
@@ -223,7 +189,8 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 	}
 
 	for (int i = 0; i < particles.position.rows(); i++) {
-		double densityConstraint = (particles.density(i) / 0.01) - 1.0;
+		double densityConstraint = (particles.density(i) * CONST_INV_REST_DENSITY) - 1.0;
+		// printf("lambda_C%f\n", densityConstraint);
 		densityConstraint = densityConstraint > 0 ? densityConstraint : 0.0;
 		// particles.C(i)=particles.density(i)*CONST_INV_REST_DENSITY-1.0;
 		// particles.C(i) = particles.C(i) > 0 ? particles.C(i) : 0;
@@ -264,32 +231,50 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 	for (int i = 0; i < particles.position.rows(); i++) {
 		Eigen::Vector3d grad;
 		Eigen::Vector3d diff;
+		Eigen::Vector3d grad_k_ci;
 		p = particles.PredictedPos.row(i);
 		grad.setZero();
 		double denom = 0;
 		for (int j : neighbors[i])
 		{
-			if(i == j) continue;
+			// if(i == j) continue;
 			p_j = particles.PredictedPos.row(j);
-			diff = p-p_j;
-			double mag = sqrt(diff.transpose()*diff);
-			double W = -45.0 / (3.14*pow(coef.H, 6.0));
-			if (mag >= 0 && mag <= coef.H)
-			{
-				// P3D normalized = P3D(diff[0] / mag, diff[1] / mag, diff[2] / mag);
-				W *= std::pow(coef.H - mag, 2.0);
-				Eigen::Vector3d tmp = (diff/(diff.norm() + 0.001))*W;
-				grad -= tmp;
-				double magGrad = sqrt(tmp.transpose()*tmp);
-				denom += std::pow(magGrad, 2.0);
+			// diff = p-p_j;
+			// double mag = sqrt(diff.transpose()*diff);
+			// double W = -45.0 / (3.14*pow(coef.H, 6.0));
+			// if (mag >= 0 && mag <= coef.H)
+			// {
+			// 	// P3D normalized = P3D(diff[0] / mag, diff[1] / mag, diff[2] / mag);
+			// 	W *= std::pow(coef.H - mag, 2.0);
+			// 	Eigen::Vector3d tmp = 1000*(diff/(diff.norm() + 0.001))*W;
+			// 	grad -= tmp;
+			// 	double magGrad = sqrt(tmp.transpose()*tmp);
+			// 	denom += std::pow(magGrad, 2.0);
+			// }
+			if(i==j) {
+				Eigen::Vector3d grad_spiky;
+				for (int k : neighbors[i]){
+					Eigen::Vector3d p_k = particles.PredictedPos.row(k);
+					spiky(p-p_k, coef.H, grad);
+					grad_spiky += grad;
+				}
+				grad_spiky = CONST_INV_REST_DENSITY * grad_spiky;
+				denom += std::pow(grad_spiky.norm(), 2.0);
+			} else {
+				Eigen::Vector3d grad_spiky;
+				spiky(p-p_j, coef.H, grad);
+				grad_spiky = -1.0 * CONST_INV_REST_DENSITY * grad;
+				denom += std::pow(grad_spiky.norm(), 2.0);
 			}
 		}
 
-		double mG = sqrt(grad.transpose()*grad);
-		double sum_Ci = denom + pow(mG, 2);
-
+		// double mG = sqrt(grad.transpose()*grad);
+		// double sum_Ci = denom + pow(mG, 2) + RELAXATION;
+		double sum_Ci = denom + RELAXATION;
+		// printf("lambda_C%f\n", particles.C(i));
+		// printf("lambda_Ci%f\n", sum_Ci);
 		// double sum_Ci=particles.grad_C(i)+RELAXATION;
-		particles.lambda(i)=-1.0*(particles.C(i)/(sum_Ci+RELAXATION));
+		particles.lambda(i)=-1.0*(particles.C(i)/(sum_Ci));
 		// particles.grad_C(i)=0.0;
 		// particles.accum_Grad_C.row(i).setZero();
 	}
@@ -298,61 +283,29 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<int> > neighbors){
 	Eigen::Vector3d p;
 	Eigen::Vector3d p_j;
+	Eigen::Vector3d delta_p;
+	Eigen::Vector3d grad;
 	for (int i = 0; i < particles.position.rows(); i++) {
+		delta_p.setZero();
 		p = particles.PredictedPos.row(i);
-		double l=particles.lambda(i);
-		Eigen::Vector3d delta;
-		
-		double k_term;
-		Eigen::Vector3d tmp;
-		tmp << 1.0, 1.0, 1.0;
-		Eigen::Vector3d d_q= (0.1*coef.H)*tmp+p;
-
+		// Eigen::Vector3d tmp;
+		// tmp << 1.0, 1.0, 1.0;
+		// Eigen::Vector3d d_q= (0.1*coef.H)*tmp;
 		double s_corr=0.0;
-
-		for(int j : neighbors[i]){
-				
-			if(i == j) continue;
+		for (int j : neighbors[i]) {
 			p_j = particles.PredictedPos.row(j);
-			double rr = sqrt((p-d_q).dot(p-d_q));
-			double kv = Wpoly(rr, coef.H);
-			// double poly6pd_q=kernel(p-d_q,coef.H);
-			double poly6pd_q=kv;
-
-			if(poly6pd_q<0.1){ 
-				k_term=0.0;
-			} else {
-				rr = sqrt((p-p_j).dot(p-p_j));
-				// k_term= kernel(p-p_j,coef.H)/poly6pd_q;
-				k_term= Wpoly(rr,coef.H)/poly6pd_q;
-			}
-			s_corr = -1.0 * PRESSURE_K * std::pow(k_term, PRESSURE_N);
-			//s_corr=0.0f;
-			//delta+=(l+(*pit)->lambda+s_corr)*spikyGradient(p-p_j,core_radius);
-			Eigen::Vector3d agc;
-			spiky(p-p_j,coef.H, agc);
-			Eigen::Vector3d dp=(particles.lambda(i)+particles.lambda(j)+s_corr)* agc*CONST_INV_REST_DENSITY;
-			if(dp.norm() > 1){
-				std::cout << "DP: " << dp << "\n";
-			}
-			particles.deltaP.row(i)+=dp;
-			particles.deltaP.row(j)-=dp;
+			s_corr = -PRESSURE_K * pow(kernel(p-p_j, coef.H) / Wpoly(0.4*coef.H, coef.H), 2.0);
+			spiky(p-p_j, coef.H, grad);
+			double a = particles.lambda(i) + particles.lambda(j) + s_corr;
+			// printf("lambda%f\n", particles.lambda(i));
+			delta_p += a * grad;
 		}
+		particles.deltaP.row(i) = CONST_INV_REST_DENSITY * delta_p;
 	}
-		
-
 	for (int i = 0; i < particles.position.rows(); i++) {
-		// if(Particles[i]->isOnSurface)
-		// 	continue;
 		particles.PredictedPos.row(i)+=particles.deltaP.row(i);
 		particles.deltaP.row(i).setZero();
 	}
-		/*
-		In position based dynamics, collision handling is just moving particles back into a valid position, its
-		velocity will be implied by the position change
-		We add a wall to left, right and bottom. We leave top open for more fun. Potential problem: particles outside of
-		the screen does not belong to any grid cell, therefore they don't have liquid properties.
-		*/
 	N << 0., -1., 0.,
 	0., 1., 0.,
 	1., 0., 0.,
@@ -366,21 +319,6 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 	0, 0., -1.,
 	2., 0., 0.,
 	0., 0., 2.;
-	// for (int w = 0; w < P.rows(); w++) {
-	// 	Eigen::Vector3d pi = particles.PredictedPos.row(i);
-	// 	Eigen::Vector3d vi = particles.velocity.row(i);
-	// 	Eigen::Vector3d p_wall = P.row(w);
-	// 	Eigen::Vector3d N_wall = N.row(w);
-	// 	double d = (p_wall - pi).dot(N_wall);
-
-	// 	if (d > 0.) {
-	// 		// push particle out of wall
-	// 		// std::cout << "Yeahhhhhhhh3 " << 0.0001*d * N_wall << std::endl;
-	// 		particles.PredictedPos.row(i) += d * N_wall;
-	// 		// reflect the velocity component # Don't need to do this!
-	// 		// particles.velocity.row(i) -=  0.9 * vi.dot(N_wall) * N_wall;
-	// 	}
-	// }
 	collision_response_2(particles, P, N);
 }
 
