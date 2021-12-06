@@ -7,7 +7,7 @@
 
 #define CONST_INV_REST_DENSITY 0.001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.00001
+#define PRESSURE_K 0.00005
 #define PRESSURE_N 6
 
 Eigen::MatrixXd N(6, 3);
@@ -77,7 +77,7 @@ void collision_response_2(
 				// particles.PredictedPos.row(i) = proj;
 				// reflect the velocity component
 				// particles.velocity.row(i) -=  1.2 * vi.dot(N_wall) * N_wall;
-				particles.velocity.row(i) -=  1.0*vi.dot(N_wall) * N_wall;
+				// particles.velocity.row(i) -=  1.0*vi.dot(N_wall) * N_wall;
 				// particles.PredictedPos.row(i) += particles.velocity.row(i) * 0.02;
 			}
 		}
@@ -168,7 +168,7 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 		p = particles.PredictedPos.row(i);
 		for (int j : neighbors[i])
 		{
-			// if(i == j) continue;
+			if(i == j) continue;
 			Eigen::Vector3d diff;
 			p_j = particles.PredictedPos.row(j);
 			diff = p-p_j;
@@ -293,6 +293,7 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 		// Eigen::Vector3d d_q= (0.1*coef.H)*tmp;
 		double s_corr=0.0;
 		for (int j : neighbors[i]) {
+			if (i==j) continue;
 			p_j = particles.PredictedPos.row(j);
 			s_corr = -PRESSURE_K * pow(kernel(p-p_j, coef.H) / Wpoly(0.4*coef.H, coef.H), 2.0);
 			spiky(p-p_j, coef.H, grad);
