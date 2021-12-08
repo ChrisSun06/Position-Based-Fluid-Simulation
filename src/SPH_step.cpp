@@ -7,7 +7,7 @@
 
 #define CONST_INV_REST_DENSITY 0.001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.1
+#define PRESSURE_K 0.0001
 #define PRESSURE_N 6
 
 Eigen::MatrixXd N(6, 3);
@@ -68,12 +68,13 @@ void collision_response_2(
 			Eigen::Vector3d proj;
 
 			if (d > 0.) {
-				double nom = (N_wall(0) * p_wall(0)) - (N_wall(0) * pi(0)) + (N_wall(1) * p_wall(1)) - (N_wall(1) * pi(1)) + (N_wall(2) * p_wall(2)) - (N_wall(2) * pi(2));
-				double denom = pow(N_wall(0), 2) + pow(N_wall(1), 2) + pow(N_wall(2), 2);
-				double t = nom / denom;
-				proj = pi + t * 2 * N_wall;
+				// double nom = (N_wall(0) * p_wall(0)) - (N_wall(0) * pi(0)) + (N_wall(1) * p_wall(1)) - (N_wall(1) * pi(1)) + (N_wall(2) * p_wall(2)) - (N_wall(2) * pi(2));
+				// double denom = pow(N_wall(0), 2) + pow(N_wall(1), 2) + pow(N_wall(2), 2);
+				// double t = nom / denom;
+				// proj = pi + t * 2 * N_wall;
 				// push particle out of wall
 				particles.PredictedPos.row(i) += 1.1 * d * N_wall;
+				particles.velocity.row(i) = Eigen::Vector3d::Zero();
 				// particles.PredictedPos.row(i) = proj;
 				// reflect the velocity component
 				// particles.velocity.row(i) -=  1.2 * vi.dot(N_wall) * N_wall;
@@ -168,21 +169,22 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 		p = particles.PredictedPos.row(i);
 		for (int j : neighbors[i])
 		{
-			if(i == j) continue;
+			//if(i == j) continue;
 			Eigen::Vector3d diff;
 			p_j = particles.PredictedPos.row(j);
 			diff = p-p_j;
-			double mag = sqrt(diff.transpose()*diff);
-			//calculate poly6 kernal, assume all particles have unit mass
-			double W = 315 / (64 * 3.14*pow(coef.H, 9));
-			if (mag >= 0 && mag <= coef.H)
-			{
-				W *= pow((pow(coef.H, 2) - pow(mag, 2)), 3);
-			}
-			else
-			{
-				W *= 0;
-			}
+			double W = kernel(diff, coef.H);
+			// double mag = sqrt(diff.transpose()*diff);
+			// //calculate poly6 kernal, assume all particles have unit mass
+			// double W = 315. / (64 * 3.14*pow(coef.H, 9));
+			// if (mag >= 0 && mag <= coef.H)
+			// {
+			// 	W *= pow((pow(coef.H, 2) - pow(mag, 2)), 3);
+			// }
+			// else
+			// {
+			// 	W *= 0;
+			// }
 			density_i += W;
 		}
 		particles.density(i) = density_i;
@@ -251,23 +253,27 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 			// 	double magGrad = sqrt(tmp.transpose()*tmp);
 			// 	denom += std::pow(magGrad, 2.0);
 			// }
-			if(i==j) {
-				Eigen::Vector3d grad_spiky;
-				for (int k : neighbors[i]){
-					Eigen::Vector3d p_k = particles.PredictedPos.row(k);
-					spiky(p-p_k, coef.H, grad);
-					grad_spiky += grad;
-				}
-				grad_spiky = CONST_INV_REST_DENSITY * grad_spiky;
-				denom += std::pow(grad_spiky.norm(), 2.0);
-			} else {
-				Eigen::Vector3d grad_spiky;
-				spiky(p-p_j, coef.H, grad);
-				grad_spiky = -1.0 * CONST_INV_REST_DENSITY * grad;
-				denom += std::pow(grad_spiky.norm(), 2.0);
-			}
+			Eigen::Vector3d grad_spiky;
+			grad_spiky.setZero();
+			spiky(p-p_j, coef.H, grad_spiky);
+			grad += grad_spiky;
+			
 		}
-
+		grad *= CONST_INV_REST_DENSITY;
+		denom += std::pow(grad.norm(), 2.0); 
+		grad.setZero();
+		for(int j: neighbors[i]){
+			p_j = particles.PredictedPos.row(j);
+			spiky(p - p_j, coef.H, grad);
+			grad *= -CONST_INV_REST_DENSITY;
+			denom += std::pow(grad.norm(), 2.0);
+		}
+		// else {
+		// 		Eigen::Vector3d grad_spiky;
+		// 		spiky(p-p_j, coef.H, grad);
+		// 		grad_spiky = -1.0 * CONST_INV_REST_DENSITY * grad;
+		// 		denom += std::pow(grad_spiky.norm(), 2.0);
+		// 	}
 		// double mG = sqrt(grad.transpose()*grad);
 		// double sum_Ci = denom + pow(mG, 2) + RELAXATION;
 		double sum_Ci = denom + RELAXATION;
@@ -275,6 +281,9 @@ void solveLambda(Particles& particles, Coef& coef, std::vector< std::vector<int>
 		// printf("lambda_Ci%f\n", sum_Ci);
 		// double sum_Ci=particles.grad_C(i)+RELAXATION;
 		particles.lambda(i)=-1.0*(particles.C(i)/(sum_Ci));
+		// if(particles.lambda(i) != 0.0){
+		// 	std::cout << "Ci: " << particles.C(i) << " sum_ci: " << sum_Ci << "\n";
+		// }
 		// particles.grad_C(i)=0.0;
 		// particles.accum_Grad_C.row(i).setZero();
 	}
@@ -300,13 +309,13 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 			p_j = particles.PredictedPos.row(j);
 			s_corr = -PRESSURE_K * pow(kernel(p-p_j, coef.H) / Wpoly(0.1*coef.H, coef.H), 4.0);
 			spiky(p-p_j, coef.H, grad);
-			if(s_corr < 0.0000001){
+			if(abs(s_corr) < 0.000001){
 				s_corr = 0.0;
 			}
 			double a = particles.lambda(i) + particles.lambda(j) + s_corr;
-			// if(particles.lambda(i) == 0.0 && particles.lambda(j) == 0.0 && s_corr != 0.0){
+			// if(particles.lambda(i) != 0.0 && particles.lambda(j) != 0.0 && s_corr != 0.0){
 			// 	printf("i: %f, j: %f, S_corr: %f\n", particles.lambda(i), particles.lambda(j), s_corr);
-			// 	std::cout << "a: " << a << " Grad: " << a * grad << "\n";
+			// 	std::cout << "a: " << a << " Grad: " << grad << "\n";
 			// }
 			// printf("lambda%f\n", particles.lambda(i));
 			delta_p += a * grad;
@@ -340,6 +349,8 @@ void final_update(Particles& particles, double dt){
 		// 	continue;
 		particles.velocity.row(i)=(particles.PredictedPos.row(i)-particles.position.row(i))/dt;
 	}
+	// TODO: ADD vorticit
+	// TODO: ADD viscosi
 	for (int i = 0; i < particles.position.rows(); i++) {
 		// if(Particles[i]->isOnSurface)
 		// 	continue;
@@ -455,138 +466,3 @@ void PBF_update(Particles& particles, double dt, Coef& coef) {
 
 	final_update(particles, dt);
 }
-
-// void SPH_step(Particles& particles, double dt, Coef& coef) {
-
-
-// 	// double
-// 	// 	density,
-// 	// 	d2Cs, // Color surface Laplacian
-// 	// 	r; // positions distance
-// 	// Eigen::Vector3d
-// 	// 	d,
-// 	// 	f_pressure, // pressure 
-// 	// 	f_visco, // viscosity 
-// 	// 	f_surface, // surface tension 
-// 	// 	f_g, // gravity 
-// 	// 	grad_press, // W_pressure gradient
-// 	// 	grad_poly, // W_poly gradient
-// 	// 	dCs; // Color surface normal 
-
-// 	min_x = particles.position.col(0).minCoeff();
-// 	min_y = particles.position.col(1).minCoeff();
-// 	min_z = particles.position.col(2).minCoeff();
-
-// 	max_x = particles.position.col(0).maxCoeff();
-// 	max_y = particles.position.col(1).maxCoeff();
-// 	max_z = particles.position.col(2).maxCoeff();
-
-// 	cell_x = (max_x - min_x) / coef.H + 1;
-// 	cell_y = (max_y - min_y) / coef.H + 1;
-// 	cell_z = (max_z - min_z) / coef.H + 1;
-
-// 	for (size_t i = 0; i < particles.position.rows(); i++) {
-// 		Eigen::Vector3d pos = particles.position.row(i);
-// 		grid_x = (pos(0) - min_x) / coef.H;
-// 		grid_y = (pos(1) - min_y) / coef.H;
-// 		grid_z = (pos(2) - min_z) / coef.H;
-// 		grid[grid_x][grid_y][grid_z].push_back(i);
-// 	}
-
-// 	for (grid_x = 0; grid_x < cell_x; grid_x++) {
-// 		for (grid_y = 0; grid_y < cell_y; grid_y++) {
-// 			for (grid_z = 0; grid_z < cell_z; grid_z++) {
-// 				for (int i : grid[grid_x][grid_y][grid_z]) {
-// 					density = 0;
-// 					for (int count_x = -1; count_x < 2; count_x++) {
-
-// 						if (grid_x + count_x < 0 || grid_x + count_x >= cell_x) continue;
-
-// 						for (int count_y = -1; count_y < 2; count_y++) {
-
-// 							if (grid_y + count_y < 0 || grid_y + count_y >= cell_y) continue;
-
-// 							for (int count_z = -1; count_z < 2; count_z++) {
-
-// 								if (grid_z + count_z < 0 || grid_z + count_z >= cell_z) continue;
-
-// 								for (int j : grid[grid_x + count_x][grid_y + count_y][grid_z + count_z]) {
-// 									d = particles.position.row(i) - particles.position.row(j);
-// 									r = sqrt(d.dot(d));
-// 									if (r > coef.H) continue;
-// 									density += Wpoly(r, coef.H);
-// 								}
-// 							}
-// 						}
-// 					}
-
-// 					particles.density(i) = density * coef.MASS;
-// 					particles.pressure(i) = coef.STIFFNESS * (particles.density(i) - coef.RHO_IDEAL);
-// 				}
-// 			}
-// 		}
-// 	}
-
-
-// 	for (grid_x = 0; grid_x < cell_x; grid_x++) {
-// 		for (grid_y = 0; grid_y < cell_y; grid_y++) {
-// 			for (grid_z = 0; grid_z < cell_z; grid_z++) {
-
-// 				for (int i : grid[grid_x][grid_y][grid_z]) {
-
-// 					// forces and surface tension
-
-// 					f_pressure.setZero();
-// 					f_surface.setZero();
-// 					f_g << 0, coef.G* particles.density(i), 0;
-// 					f_visco.setZero();
-// 					dCs.setZero();
-// 					d2Cs = 0;
-
-// 					for (int count_x = -1; count_x < 2; count_x++) {
-
-// 						if (grid_x + count_x < 0 || grid_x + count_x >= cell_x) continue;
-
-// 						for (int count_y = -1; count_y < 2; count_y++) {
-
-// 							if (grid_y + count_y < 0 || grid_y + count_y >= cell_y) continue;
-
-// 							for (int count_z = -1; count_z < 2; count_z++) {
-
-// 								if (grid_z + count_z < 0 || grid_z + count_z >= cell_z) continue;
-
-// 								for (int j : grid[grid_x + count_x][grid_y + count_y][grid_z + count_z]) {
-// 									d = particles.position.row(i) - particles.position.row(j);
-// 									r = sqrt(d.dot(d));
-// 									if (r > coef.H) continue;
-// 									if (r > 0.) {
-// 										dWpress(d, r, coef.H, grad_press);
-// 										f_pressure -= coef.MASS * (particles.pressure(i) + particles.pressure(j)) / (2. * particles.density(j)) * grad_press;
-// 										Eigen::Vector3d diff_v = particles.velocity.row(j) - particles.velocity.row(i);
-// 										f_visco += d2Wvisco(r, coef.H) * diff_v / particles.density(j);
-// 									}
-// 									dWpoly(d, r, coef.H, grad_poly);
-// 									dCs += particles.density(j) * grad_poly;
-// 									d2Cs += d2Wpoly(r, coef.H) / particles.density(j);
-// 								}
-// 							}
-// 						}
-// 					}
-
-// 					f_visco *= coef.VISCOSITY * coef.MASS;
-// 					dCs *= coef.MASS;
-// 					d2Cs *= coef.MASS;
-
-
-
-// 					if (dCs.norm() > coef.SUFRACE_THRESH) {
-// 						f_surface = -coef.SUFRACE_TENSION * d2Cs * dCs.normalized();
-// 					}
-// 					particles.acceleration.row(i) = (f_pressure + f_visco + f_surface + f_g) / particles.density(i);
-// 					particles.velocity.row(i) += dt * particles.acceleration.row(i);
-// 					particles.position.row(i) += dt * particles.velocity.row(i);
-// 				}
-// 			}
-// 		}
-// 	}
-// }
