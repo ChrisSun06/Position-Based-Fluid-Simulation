@@ -7,7 +7,7 @@
 
 #define CONST_INV_REST_DENSITY 0.001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.0001
+#define PRESSURE_K 0.1
 #define PRESSURE_N 6
 
 Eigen::MatrixXd N(6, 3);
@@ -292,15 +292,26 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 		// tmp << 1.0, 1.0, 1.0;
 		// Eigen::Vector3d d_q= (0.1*coef.H)*tmp;
 		double s_corr=0.0;
+		double lambda_i_sum = 0.0;
+		double lambda_j_sum = 0.0;
+		double s_corr_sum = 0.0;
 		for (int j : neighbors[i]) {
 			if (i==j) continue;
 			p_j = particles.PredictedPos.row(j);
-			s_corr = -PRESSURE_K * pow(kernel(p-p_j, coef.H) / Wpoly(0.1*coef.H, coef.H), 2.0);
+			s_corr = -PRESSURE_K * pow(kernel(p-p_j, coef.H) / Wpoly(0.1*coef.H, coef.H), 4.0);
 			spiky(p-p_j, coef.H, grad);
+			if(s_corr < 0.0000001){
+				s_corr = 0.0;
+			}
 			double a = particles.lambda(i) + particles.lambda(j) + s_corr;
+			// if(particles.lambda(i) == 0.0 && particles.lambda(j) == 0.0 && s_corr != 0.0){
+			// 	printf("i: %f, j: %f, S_corr: %f\n", particles.lambda(i), particles.lambda(j), s_corr);
+			// 	std::cout << "a: " << a << " Grad: " << a * grad << "\n";
+			// }
 			// printf("lambda%f\n", particles.lambda(i));
 			delta_p += a * grad;
 		}
+			
 		particles.deltaP.row(i) = CONST_INV_REST_DENSITY * delta_p;
 	}
 	for (int i = 0; i < particles.position.rows(); i++) {
