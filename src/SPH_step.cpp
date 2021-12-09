@@ -3,7 +3,6 @@
 #include <weight_funcs.h>
 #include <coefs.h>
 #include <iostream>
-#include <collision_response.h>
 
 #define CONST_INV_REST_DENSITY 0.001
 #define RELAXATION 0.01
@@ -11,20 +10,7 @@
 #define PRESSURE_N 6
 
 Eigen::MatrixXd N(6, 3);
-// N << 0., -1., 0.,
-// 	0., 1., 0.,
-// 	1., 0., 0.,
-// 	0., 0., 1.,
-// 	-1., 0., 0.,
-// 	0., 0., -1.;
 Eigen::MatrixXd P(6, 3);
-// P <<
-// 	0., 2., 0.,
-// 	0., -1., 0.,
-// 	-1., 0., 0.,
-// 	0, 0., -1.,
-// 	2., 0., 0.,
-// 	0., 0., 2.;
 
 double
 	density,
@@ -384,50 +370,16 @@ void PBF_update(Particles& particles, double dt, Coef& coef) {
 
 	cleanup(particles);
 
-	// N <<
-	// 0., -1., 0.,
-	// 0., 1., 0.,
-	// 1., 0., 0.,
-	// 0., 0., 1.,
-	// -1., 0., 0.,
-	// 0., 0., -1.;
-	// P <<
-	// 0., 2., 0.,
-	// 0., -1., 0.,
-	// -1., 0., 0.,
-	// 0, 0., -1.,std::cout << "-------------" << std::endl;
-		// std::cout << grid_x << std::endl;
-		// std::cout << grid.size()<< std::endl;
-		// std::cout << cell_x<< std::endl;
-		// std::cout << pos(0)<< std::endl;
-		// std::cout << min_x<< std::endl;
-		// std::cout << "-------------" << std::endl;
-	// 2., 0., 0.,
-	// 0., 0., 2.;
-
-	// collision_response(particles, P, N);
-
-	// std::cout << grid.size() << std::endl;
-	// std::cout << cell_x << std::endl;
-	// std::cout << grid[0].size() << std::endl;
-
 	addExtForce(dt, f_g, particles, coef);
 
 	min_x = particles.PredictedPos.col(0).minCoeff();
 	min_y = particles.PredictedPos.col(1).minCoeff();
 	min_z = particles.PredictedPos.col(2).minCoeff();
 
-	// printf("particles_min[0]=%f\n", min_x);
-	// printf("particles_min[1]=%f\n", min_y);
-	// printf("particles_min[2]=%f\n", min_z);
 
 	max_x = particles.PredictedPos.col(0).maxCoeff();
 	max_y = particles.PredictedPos.col(1).maxCoeff();
 	max_z = particles.PredictedPos.col(2).maxCoeff();
-
-	// printf("particles_max[0]=%f\n", max_x);
-	// printf("particles_max[1]=%f\n", max_y);
-	// printf("particles_max[2]=%f\n", max_z);
 
 	cell_x = (max_x - min_x) / coef.H + 1;
 	cell_y = (max_y - min_y) / coef.H + 1;
@@ -440,17 +392,8 @@ void PBF_update(Particles& particles, double dt, Coef& coef) {
 		Eigen::Vector3d pos = particles.PredictedPos.row(i);
 		grid_x = (pos(0) - min_x) / coef.H;
 		grid_y = (pos(1) - min_y) / coef.H;
-		// std::cout << pos(1) << std::endl;
-		// std::cout << min_y << std::endl;
 
 		grid_z = (pos(2) - min_z) / coef.H;
-		// std::cout << "-------------" << std::endl;
-		// std::cout << grid_x << std::endl;
-		// std::cout << grid.size()<< std::endl;
-		// std::cout << cell_x<< std::endl;
-		// std::cout << pos(0)<< std::endl;
-		// std::cout << min_x<< std::endl;
-		// std::cout << "-------------" << std::endl;
 		assert(grid_x < grid.size());
 		assert(grid_y < grid[grid_x].size());
 		assert(grid_z < grid[grid_x][grid_y].size());
