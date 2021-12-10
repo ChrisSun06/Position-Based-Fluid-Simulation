@@ -18,7 +18,7 @@ void spiky(
 		g = ret;
 		return;
 	}
-	g = -45. / (M_PI * pow(H, 6)) * pow(H - r.norm(), 2) * r / (r.norm() + 0.0000001);
+	g = -45. / (M_PI * pow(H, 6)) * pow(H - r.norm(), 2) * r / (r.norm());
 }
 
 void dWpress(

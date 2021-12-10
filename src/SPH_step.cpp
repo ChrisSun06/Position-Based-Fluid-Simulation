@@ -4,10 +4,11 @@
 #include <coefs.h>
 #include <iostream>
 
-#define CONST_INV_REST_DENSITY 0.001
+#define CONST_INV_REST_DENSITY 0.0001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.0001
+#define PRESSURE_K 0.00000
 #define PRESSURE_N 6
+#define EPSILON 0.0000f
 
 Eigen::MatrixXd N(6, 3);
 Eigen::MatrixXd P(6, 3);
@@ -81,12 +82,12 @@ void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, 
 	-1., 0., 0.,
 	0., 0., -1.;
 	P <<
-	0., 2., 0.,
+	0., 1., 0.,
 	0., -1., 0.,
 	-1., 0., 0.,
 	0, 0., -1.,
-	2., 0., 0.,
-	0., 0., 2.;
+	1., 0., 0.,
+	0., 0., 1.;
 	for (int i = 0; i < particles.position.rows(); i++) {
 		particles.velocity.row(i) += dt*(particles.force.row(i)+extF.transpose())/coef.MASS;
 		particles.deltaP.row(i).setZero();
@@ -320,22 +321,60 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 	-1., 0., 0.,
 	0., 0., -1.;
 	P <<
-	0., 2., 0.,
+	0., 1., 0.,
 	0., -1., 0.,
 	-1., 0., 0.,
 	0, 0., -1.,
-	2., 0., 0.,
-	0., 0., 2.;
+	1., 0., 0.,
+	0., 0., 1.;
 	collision_response_2(particles, P, N);
 }
 
-void final_update(Particles& particles, double dt){
+void calculate_vorticity(Particles& particles, Coef& coef, std::vector< std::vector<int> > neighbors){
+	for(int i = 0; i < particles.position.rows(); i++){
+		
+		Eigen::Vector3d pi = particles.PredictedPos.row(i);
+		Eigen::Vector3d vi = particles.velocity.row(i);
+		Eigen::Vector3d wi;
+		wi.setZero();
+		for(int j: neighbors[i]){
+			Eigen::Vector3d vj = particles.velocity.row(j);
+			Eigen::Vector3d pj = particles.PredictedPos.row(j);
+			Eigen::Vector3d grad_spiky;
+			grad_spiky.setZero();
+			spiky(pi - pj, coef.H, grad_spiky);
+			wi += (vj - vi).cross(grad_spiky);
+		}
+		Eigen::Vector3d eta;
+		eta.setZero();
+		wi.normalized();
+		for(int j: neighbors[i]){
+			Eigen::Vector3d pj = particles.PredictedPos.row(j);
+			Eigen::Vector3d grad_spiky;
+			grad_spiky.setZero();
+			spiky(pi - pj, coef.H, grad_spiky);
+			eta += grad_spiky*wi.norm();
+		}
+		if(eta.norm() == 0.0){
+			return;
+		}
+		else{
+			Eigen::Vector3d normalized = eta / eta.norm();
+			Eigen::Vector3d result = normalized.cross(wi);
+			particles.force.row(i) += EPSILON * result;
+		}
+ 		
+	}
+}
+
+void final_update(Particles& particles, double dt, Coef& coef, std::vector< std::vector<int> > neighbors){
 	for (int i = 0; i < particles.position.rows(); i++) {
 		// if(Particles[i]->isOnSurface)
 		// 	continue;
 		particles.velocity.row(i)=(particles.PredictedPos.row(i)-particles.position.row(i))/dt;
 	}
 	// TODO: ADD vorticit
+	calculate_vorticity(particles, coef, neighbors);
 	// TODO: ADD viscosi
 	for (int i = 0; i < particles.position.rows(); i++) {
 		// if(Particles[i]->isOnSurface)
@@ -406,6 +445,5 @@ void PBF_update(Particles& particles, double dt, Coef& coef) {
 		solveLambda(particles, coef, neighbors);
 		solvePosition(particles, coef, neighbors);
 	}
-
-	final_update(particles, dt);
+	final_update(particles, dt, coef, neighbors);
 }

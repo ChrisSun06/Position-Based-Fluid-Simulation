@@ -17,7 +17,7 @@
 int main(int argc, char* argv[])
 {
 
-	Eigen::Vector3i num_points(15, 15, 10);
+	Eigen::Vector3i num_points(15, 25, 10);
 	//Eigen::Vector3i num_points(10, 10, 10);
 	double step_size = 0.05;
 	Eigen::Vector3d corner(-0.5, -0.5, -0.5);
@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
 	Particles particles;
 	Coef coef;
 	coef.MASS = 1.0;
-	coef.H = 0.09;
+	coef.H = 0.06;
 	coef.G = -9.8;
 
 
@@ -56,6 +56,9 @@ int main(int argc, char* argv[])
 	{
 		if(key == 'r' || key == 'R'){
 			reset();
+		}
+		else if(key == 'a' || key == 'A'){
+			move();
 		}
 		return false;
 	};
