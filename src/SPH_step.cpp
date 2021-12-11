@@ -6,9 +6,10 @@
 
 #define CONST_INV_REST_DENSITY 0.0001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.00000
+#define PRESSURE_K 0.000001
 #define PRESSURE_N 6
-#define EPSILON 0.0000f
+#define EPSILON 0.00005f
+#define VISCOSITY_C 0.00001
 
 Eigen::MatrixXd N(6, 3);
 Eigen::MatrixXd P(6, 3);
@@ -82,7 +83,7 @@ void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, 
 	-1., 0., 0.,
 	0., 0., -1.;
 	P <<
-	0., 1., 0.,
+	0., 3., 0.,
 	0., -1., 0.,
 	-1., 0., 0.,
 	0, 0., -1.,
@@ -321,7 +322,7 @@ void solvePosition(Particles& particles, Coef& coef, std::vector< std::vector<in
 	-1., 0., 0.,
 	0., 0., -1.;
 	P <<
-	0., 1., 0.,
+	0., 3., 0.,
 	0., -1., 0.,
 	-1., 0., 0.,
 	0, 0., -1.,
@@ -347,7 +348,6 @@ void calculate_vorticity(Particles& particles, Coef& coef, std::vector< std::vec
 		}
 		Eigen::Vector3d eta;
 		eta.setZero();
-		wi.normalized();
 		for(int j: neighbors[i]){
 			Eigen::Vector3d pj = particles.PredictedPos.row(j);
 			Eigen::Vector3d grad_spiky;
@@ -367,6 +367,22 @@ void calculate_vorticity(Particles& particles, Coef& coef, std::vector< std::vec
 	}
 }
 
+void calculate_viscosity(Particles& particles, Coef& coef, std::vector< std::vector<int> > neighbors){
+	for(int i = 0; i < particles.position.rows(); i++){
+		Eigen::Vector3d pi = particles.PredictedPos.row(i);
+		Eigen::Vector3d vi = particles.velocity.row(i);
+		Eigen::Vector3d viscosity;
+		viscosity.setZero();
+		for(int j : neighbors[i]){
+			Eigen::Vector3d pj = particles.PredictedPos.row(j);
+			Eigen::Vector3d vj = particles.velocity.row(j);
+			Eigen::Vector3d vij = vj - vi;
+			viscosity += vij * kernel(pi - pj, coef.H);
+		}
+		particles.velocity.row(i) += VISCOSITY_C*viscosity;
+	}
+}
+
 void final_update(Particles& particles, double dt, Coef& coef, std::vector< std::vector<int> > neighbors){
 	for (int i = 0; i < particles.position.rows(); i++) {
 		// if(Particles[i]->isOnSurface)
@@ -375,6 +391,7 @@ void final_update(Particles& particles, double dt, Coef& coef, std::vector< std:
 	}
 	// TODO: ADD vorticit
 	calculate_vorticity(particles, coef, neighbors);
+	calculate_viscosity(particles, coef, neighbors);
 	// TODO: ADD viscosi
 	for (int i = 0; i < particles.position.rows(); i++) {
 		// if(Particles[i]->isOnSurface)
