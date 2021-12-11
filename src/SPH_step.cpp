@@ -6,10 +6,10 @@
 
 #define CONST_INV_REST_DENSITY 0.0001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.0001
+#define PRESSURE_K 0.0003
 #define PRESSURE_N 6
-#define EPSILON 0.0000f
-#define VISCOSITY_C 0.00007
+#define EPSILON 0.00007f
+#define VISCOSITY_C 0.00008
 
 Eigen::MatrixXd N(6, 3);
 Eigen::MatrixXd P(6, 3);
