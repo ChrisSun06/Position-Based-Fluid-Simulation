@@ -17,7 +17,7 @@
 int main(int argc, char* argv[])
 {
 
-	Eigen::Vector3i num_points(15, 25, 10);
+	Eigen::Vector3i num_points(15, 15, 10);
 	//Eigen::Vector3i num_points(10, 10, 10);
 	double step_size = 0.05;
 	Eigen::Vector3d corner(-0.5, -0.5, -0.5);

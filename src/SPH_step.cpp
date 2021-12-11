@@ -8,7 +8,7 @@
 #define RELAXATION 0.01
 #define PRESSURE_K 0.00000
 #define PRESSURE_N 6
-#define EPSILON 0.0000f
+#define EPSILON 0.00005f
 
 Eigen::MatrixXd N(6, 3);
 Eigen::MatrixXd P(6, 3);
@@ -347,7 +347,7 @@ void calculate_vorticity(Particles& particles, Coef& coef, std::vector< std::vec
 		}
 		Eigen::Vector3d eta;
 		eta.setZero();
-		wi.normalized();
+		// wi.normalized();
 		for(int j: neighbors[i]){
 			Eigen::Vector3d pj = particles.PredictedPos.row(j);
 			Eigen::Vector3d grad_spiky;
@@ -367,6 +367,138 @@ void calculate_vorticity(Particles& particles, Coef& coef, std::vector< std::vec
 	}
 }
 
+void add_vorticity_ch(Particles& particles, Coef& coef, std::vector< std::vector<int> > neighbors){
+	Eigen::Vector3d dx;
+	Eigen::Vector3d dy;
+	Eigen::Vector3d dz;
+	double DELTA = 0.01;
+	dx << DELTA, 0, 0;
+	dy << 0, DELTA, 0;
+	dz << 0, 0, DELTA;
+	for (int i = 0; i < particles.position.rows(); i++) {
+      	Eigen::Vector3d pi = particles.PredictedPos.row(i);
+		Eigen::Vector3d vi = particles.velocity.row(i);
+      	Eigen::Vector3d wi;
+		wi.setZero();
+      
+		Eigen::Vector3d omegaiPurturbedX;
+		Eigen::Vector3d omegaiPurturbedY;
+		Eigen::Vector3d omegaiPurturbedZ;
+		omegaiPurturbedX.setZero();
+		omegaiPurturbedY.setZero();
+		omegaiPurturbedZ.setZero();
+
+		for (int j: neighbors[i]) {
+			Eigen::Vector3d vj = particles.velocity.row(j);
+			Eigen::Vector3d pj = particles.PredictedPos.row(j);
+			// Eigen::Vector3d pij = new Vector3d(pj.x);
+			// pij.sub(pi.x);
+			// Eigen::Vector3d dWdpj = Kernels.poly6dp(pij);
+			Eigen::Vector3d grad_spiky;
+			grad_spiky.setZero();
+			spiky(pj - pi, coef.H, grad_spiky);
+			
+			// Vector3d vij = new Vector3d(pj.v);
+			// vij.sub(pi.v);
+			Eigen::Vector3d vij = vj - vi;
+			
+			// Vector3d crossij = new Vector3d();  
+			// crossij.cross(dWdpj, vij);
+			Eigen::Vector3d crossij = grad_spiky.cross(vij);
+			
+			// omegai.add(crossij);
+			wi += crossij;
+			
+			// Vector3d pijPurturbedX = new Vector3d(pij);
+			// Vector3d pijPurturbedY = new Vector3d(pij);
+			// Vector3d pijPurturbedZ = new Vector3d(pij);
+			Eigen::Vector3d pijPurturbedX;
+			Eigen::Vector3d pijPurturbedY;
+			Eigen::Vector3d pijPurturbedZ;
+			// pijPurturbedX.add(dx);
+			// pijPurturbedY.add(dy);
+			// pijPurturbedZ.add(dz);
+			pijPurturbedX = pj-pi + dx;
+			pijPurturbedY = pj-pi + dy;
+			pijPurturbedZ = pj-pi + dz;
+
+			Eigen::Vector3d grad_x;
+			Eigen::Vector3d grad_y;
+			Eigen::Vector3d grad_z;
+			spiky(pijPurturbedX, coef.H, grad_x);
+			spiky(pijPurturbedY, coef.H, grad_y);
+			spiky(pijPurturbedZ, coef.H, grad_z);
+
+			// crossij = crossij.cross(Kernels.poly6dp(pijPurturbedX), vij);
+			// omegaiPurturbedX.add(crossij);
+			// crossij.cross(Kernels.poly6dp(pijPurturbedY), vij);
+			// omegaiPurturbedY.add(crossij);
+			// crossij.cross(Kernels.poly6dp(pijPurturbedZ), vij);
+			// omegaiPurturbedZ.add(crossij);
+			crossij = grad_x.cross(vij);
+			omegaiPurturbedX += crossij;
+			crossij = grad_y.cross(vij);
+			omegaiPurturbedY += crossij;
+			crossij = grad_z.cross(vij);
+			omegaiPurturbedZ += crossij;
+		}
+		if (wi(0) == 0.0 && wi(1)  == 0.0 && wi(2)  == 0.0) {
+			return;
+		}
+		Eigen::Vector3d eta;
+		eta.setZero();
+		eta << (omegaiPurturbedX.norm() - wi.norm()) / DELTA, (omegaiPurturbedY.norm() - wi.norm()) / DELTA, (omegaiPurturbedZ.norm() - wi.norm()) / DELTA;
+
+		// Vector3d eta = new Vector3d(
+		// 	(omegaiPurturbedX.length() - omegai.length()) / DELTA,
+		// 	(omegaiPurturbedY.length() - omegai.length()) / DELTA,
+		// 	(omegaiPurturbedZ.length() - omegai.length()) / DELTA);
+		
+		eta.normalize();
+		
+		Eigen::Vector3d fVorticity;
+		// fVorticity.cross(eta, omegai);
+		fVorticity = eta.cross(wi);
+		// fVorticity.scale(vorticityEps);
+		fVorticity *= EPSILON;
+		particles.force.row(i) = fVorticity;
+	}
+}
+
+void add_vorticity(Particles& particles, Coef& coef, std::vector< std::vector<int> > neighbors){
+	for(int i = 0; i < particles.position.rows(); i++){
+		
+		Eigen::Vector3d pi = particles.PredictedPos.row(i);
+		Eigen::Vector3d vi = particles.velocity.row(i);
+		Eigen::Vector3d wi;
+		wi.setZero();
+		for(int j: neighbors[i]){
+			Eigen::Vector3d vj = particles.velocity.row(j);
+			Eigen::Vector3d pj = particles.PredictedPos.row(j);
+			Eigen::Vector3d grad_spiky;
+			grad_spiky.setZero();
+			spiky(pi - pj, coef.H, grad_spiky);
+			wi += (vj - vi).cross(grad_spiky);
+		}
+		Eigen::Vector3d eta;
+		eta.setZero();
+		// wi.normalized();
+		for(int j: neighbors[i]){
+			Eigen::Vector3d pj = particles.PredictedPos.row(j);
+			Eigen::Vector3d p_mid = (pi+pj) / 2.0;
+			eta += p_mid - pi;
+		}
+		if(eta.norm() == 0.0){
+			return;
+		}
+		else{
+			eta.normalize();
+			particles.force.row(i) += EPSILON * (eta.cross(wi));
+		}
+ 		
+	}
+}
+
 void final_update(Particles& particles, double dt, Coef& coef, std::vector< std::vector<int> > neighbors){
 	for (int i = 0; i < particles.position.rows(); i++) {
 		// if(Particles[i]->isOnSurface)
@@ -374,7 +506,7 @@ void final_update(Particles& particles, double dt, Coef& coef, std::vector< std:
 		particles.velocity.row(i)=(particles.PredictedPos.row(i)-particles.position.row(i))/dt;
 	}
 	// TODO: ADD vorticit
-	calculate_vorticity(particles, coef, neighbors);
+	add_vorticity_ch(particles, coef, neighbors);
 	// TODO: ADD viscosi
 	for (int i = 0; i < particles.position.rows(); i++) {
 		// if(Particles[i]->isOnSurface)
@@ -398,6 +530,7 @@ void cleanup(Particles& particles){
 	particles.grad_C.setZero();
 	particles.accum_Grad_C.setZero();
 	particles.lambda.setZero();
+	// particles.force.setZero();
 }
 
 void PBF_update(Particles& particles, double dt, Coef& coef) {
