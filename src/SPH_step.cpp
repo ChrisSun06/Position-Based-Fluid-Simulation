@@ -6,10 +6,10 @@
 
 #define CONST_INV_REST_DENSITY 0.0001
 #define RELAXATION 0.01
-#define PRESSURE_K 0.000001
+#define PRESSURE_K 0.0001
 #define PRESSURE_N 6
-#define EPSILON 0.00005f
-#define VISCOSITY_C 0.00001
+#define EPSILON 0.0000f
+#define VISCOSITY_C 0.00007
 
 Eigen::MatrixXd N(6, 3);
 Eigen::MatrixXd P(6, 3);
@@ -83,7 +83,7 @@ void addExtForce(double dt, const Eigen::Vector3d & extF, Particles& particles, 
 	-1., 0., 0.,
 	0., 0., -1.;
 	P <<
-	0., 3., 0.,
+	0., 1., 0.,
 	0., -1., 0.,
 	-1., 0., 0.,
 	0, 0., -1.,
