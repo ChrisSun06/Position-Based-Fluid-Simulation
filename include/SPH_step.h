@@ -6,8 +6,6 @@
 #include <coefs.h>
 #include <vector>
 
-// void SPH_step(Particles& particles, double dt, Coef& coef);
-void PBF_update(Particles& particles, double dt, Coef& coef);
-typedef std::vector<std::vector<std::vector<int>>> Grid;
+void PBF_update(Particles& particles, double dt);
 
 #endif

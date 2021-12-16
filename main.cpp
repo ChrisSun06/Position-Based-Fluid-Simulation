@@ -14,70 +14,100 @@
 #include <cstdlib>
 #include <unistd.h>
 
+#define X_POINTS 15
+#define Y_POINTS 15
+#define Z_POINTS 15
+
+Eigen::Vector3d start_point;
+Particles particles;
+
+void initialize_particles(Particles& particles){
+	particles.position.resize(X_POINTS*Y_POINTS*Z_POINTS, 3);
+	particles.position.setZero();
+	particles.PredictedPos.resize(X_POINTS*Y_POINTS*Z_POINTS, 3);
+	particles.PredictedPos.setZero();
+	particles.deltaP.resize(X_POINTS*Y_POINTS*Z_POINTS, 3);
+	particles.deltaP.setZero();
+
+	particles.velocity.resize(X_POINTS*Y_POINTS*Z_POINTS, 3);
+	particles.velocity.setZero();
+	particles.acceleration.resize(X_POINTS*Y_POINTS*Z_POINTS, 3);
+	particles.acceleration.setZero();
+
+	particles.pressure.resize(X_POINTS*Y_POINTS*Z_POINTS);
+	particles.pressure.setZero();
+	particles.density.resize(X_POINTS*Y_POINTS*Z_POINTS);
+	particles.density.setZero();
+	particles.force.resize(X_POINTS*Y_POINTS*Z_POINTS, 3);
+	particles.force.setZero();
+
+	particles.C.resize(X_POINTS*Y_POINTS*Z_POINTS);
+	particles.C.setZero();
+	particles.grad_C.resize(X_POINTS*Y_POINTS*Z_POINTS);
+	particles.grad_C.setZero();
+	particles.accum_Grad_C.resize(X_POINTS*Y_POINTS*Z_POINTS, 3);
+	particles.accum_Grad_C.setZero();
+	particles.lambda.resize(X_POINTS*Y_POINTS*Z_POINTS);
+	particles.lambda.setZero();
+}
+
+void reset_particles(Particles& particles){
+	int count = 0;
+	double step = 0.05;
+	initialize_particles(particles);
+	for (int x=0; x<X_POINTS; x++){
+		for (int y=0; y<Y_POINTS; y++){
+			for (int z=0; z<Z_POINTS; z++){
+				particles.position.row(count) << x*step+start_point(0), y*step+start_point(1), z*step+start_point(2);
+				count += 1;
+			}
+		}
+	}
+}
+
+void update_particles(Particles& particles){
+	PBF_update(particles, 0.03);
+}
+
 int main(int argc, char* argv[])
 {
 
-	Eigen::Vector3i num_points(15, 15, 15);
-	//Eigen::Vector3i num_points(10, 10, 10);
-	double step_size = 0.05;
-	Eigen::Vector3d corner(-0.5, -0.5, -0.5);
-	const Eigen::RowVector3d particle_color(0.2, 0.8, 0.8);
+	const Eigen::RowVector3d particle_color(0.0, 0.8, 0.8);
+
+	start_point << -0.5, -0.5, -0.5;
 
 	igl::opengl::glfw::Viewer viewer;
-	const int xid = viewer.selected_data_index;
 	viewer.append_mesh();
-	Particles particles;
-	Coef coef;
-	coef.MASS = 1.0;
-	coef.H = 0.06;
-	coef.G = -9.8;
 
-
-	init_particles(particles, corner, num_points, step_size);
-	const auto& reset = [&]()
-	{
-		init_particles(particles, corner, num_points, step_size);
-		viewer.data_list[xid].set_points(particles.position, (1. - (1. - particle_color.array()) * .9));
-	};
-
-	const auto& move = [&]()
-	{
-		// collision_response(particles, P, N);
-		// SPH_step(particles, 0.02, coef);
-		PBF_update(particles, 0.02, coef);
-
-		viewer.data_list[xid].set_points(particles.position, (1. - (1. - particle_color.array()) * .9));
-
-	};
-
+	initialize_particles(particles);
+	reset_particles(particles);
+	viewer.data_list[0].set_points(particles.position, particle_color);
 
 	viewer.callback_key_pressed =
 		[&](igl::opengl::glfw::Viewer&, unsigned char key, int)->bool
 	{
 		if(key == 'r' || key == 'R'){
-			reset();
-		}
-		else if(key == 'a' || key == 'A'){
-			move();
+			reset_particles(particles);
+			viewer.data_list[0].set_points(particles.position, particle_color);
 		}
 		return false;
 	};
 	viewer.core().is_animating = true;
 	viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & )->bool
 	{
-		move();
-		viewer.data_list[xid].set_points(particles.position, (1. - (1. - particle_color.array()) * .9));
+		update_particles(particles);
+		viewer.data_list[0].set_points(particles.position, particle_color);
 		return false;
 	};
-	viewer.data_list[xid].set_colors(particle_color);
-	viewer.data_list[xid].set_points(particles.position, (1. - (1. - particle_color.array()) * .9));
-	viewer.data_list[xid].point_size = 6.0;
+	viewer.data_list[0].set_colors(particle_color);
+	viewer.data_list[0].set_points(particles.position, particle_color);
+	viewer.data_list[0].point_size = 8.0;
 	viewer.launch();
 
 
 
 
-	return EXIT_SUCCESS;
+	return 0;
 }
 
 

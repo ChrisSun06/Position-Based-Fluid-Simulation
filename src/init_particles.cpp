@@ -8,19 +8,7 @@ void init_particles(
 ) {
 	
 	int num_V = num_points(0) * num_points(1) * num_points(2);
-
-	// 	Eigen::MatrixXd PredictedPos;
-	// Eigen::MatrixXd deltaP;
-	// Eigen::MatrixXd position;
-	// Eigen::MatrixXd velocity;
-	// Eigen::MatrixXd acceleration;
-	// Eigen::MatrixXd force;
-	// Eigen::VectorXd pressure;
-	// Eigen::VectorXd density;
-	// Eigen::VectorXd C;
-	// Eigen::VectorXd grad_C;
-	// Eigen::MatrixXd accum_Grad_C;
-	// Eigen::VectorXd lambda;
+	
 	particles.position.resize(num_V, 3);
 	particles.position.setZero();
 	particles.PredictedPos.resize(num_V, 3);
