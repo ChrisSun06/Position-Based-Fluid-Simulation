@@ -72,7 +72,7 @@ void update_particles(Particles& particles){
 int main(int argc, char* argv[])
 {
 
-	const Eigen::RowVector3d particle_color(0.0, 0.8, 0.8);
+	const Eigen::RowVector3d particle_color(0.0, 0.3, 0.6);
 
 	start_point << -0.5, -0.5, -0.5;
 
