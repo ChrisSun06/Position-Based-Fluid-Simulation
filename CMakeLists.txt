@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(fluid)
+project(pbf)
 
 #Important CMAKE stuff
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -25,7 +25,7 @@ file(GLOB CPP_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 file(GLOB CPP_SHARED_FILES ${PROJECT_SOURCE_DIR}/shared/src/*.cpp)
 
 #build executable 
-add_executable(${PROJECT_NAME} main.cpp ${H_FILES} ${H_SHARED_FILES} ${CPP_FILES} ${CPP_SHARED_FILES})
+add_executable(${PROJECT_NAME} src/main.cpp ${H_FILES} ${H_SHARED_FILES} ${CPP_FILES} ${CPP_SHARED_FILES})
 target_link_libraries(${PROJECT_NAME} igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui)
 
 
